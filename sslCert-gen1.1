@@ -1,0 +1,109 @@
+#!/bin/bash
+
+#executed with FQDN?
+if test "$1" != ""
+        then
+                DOMAIN=$1
+        else
+                echo -e "Usage: sslCert-gen fqdn"
+                exit
+fi
+
+#are root CA files present?
+if [ -e rootCA.pem ] && [ -e rootCA.key ]
+	then
+		echo -e "\nrootCA.pem and rootCA.key files are present!\n"
+	else
+		echo -e "rootCA.pem and rootCA.key files must be in local directory!!!"
+		exit
+fi
+
+#read .ext variables
+
+echo "Enter Subject Alternative Name information"
+
+read -p "Enter DNS.2: " DNS2
+read -p "Enter DNS.3: " DNS3
+read -p "Enter IP.1: " IP1
+read -p "Enter IP.2: " IP2
+read -p "Enter IP.3: " IP3
+
+#setup .ext variables
+
+DNS1LINE="DNS.1 = "$DOMAIN"\n"
+
+if test "$DNS2" != ""
+                then
+		DNS2LINE="DNS.2 = "$DNS2"\n"
+fi
+
+if test "$DNS3" != ""
+                then
+                DNS3LINE="DNS.3 = "$DNS3"\n"
+fi
+
+if test "$IP1" != ""
+                then
+                IP1LINE="IP.1 = "$IP1"\n"
+fi
+
+if test "$IP2" != ""
+                then
+                IP2LINE="IP.2 = "$IP2"\n"
+fi
+
+if test "$IP3" != ""
+                then
+                IP3LINE="IP.3 = "$IP3"\n"
+fi
+
+#write .ext file
+echo -e "Writing "$DOMAIN".ext\n"
+
+echo -e "authorityKeyIdentifier=keyid,issuer\nbasicConstraints=CA:FALSE\nkeyUsage = digitalSignature, nonRepudiation, keyEncipherment, dataEncipherment\nsubjectAltName = @alt_names\n\n[alt_names]\n" > $DOMAIN".ext"
+echo -e $DNS1LINE$DNS2LINE$DNS3LINE$IP1LINE$IP2LINE$IP3LINE >> $DOMAIN".ext"
+
+#read key length
+read -p "Enter Keylength of 4096 otherwise 2048 will be used: " KEYLENGTH
+
+if [ "$KEYLENGTH" != "4096" ]
+	then
+	KEYLENGTH=2048
+fi
+
+#create key
+echo -e "Creating key file "$DOMAIN".key"
+
+echo -e "openssl genrsa -out "$DOMAIN".key "$KEYLENGTH
+
+openssl genrsa -out $DOMAIN.key $KEYLENGTH
+
+#create signing request
+echo -e "Creating csr file"$DOMAIN".csr\n"
+
+echo -e "openssl req -new -key "$DOMAIN".key -out "$DOMAIN".csr\n"
+
+openssl req -new -key $DOMAIN.key -out $DOMAIN.csr
+
+#read expiration in years
+read -p "Enter number of years before expiration: " YEARS
+
+DAYS=$[YEARS*365]
+
+#creat certificate
+
+echo -e "Creating certficate file "$DOMAIN".crt\n"
+
+echo -e "openssl x509 -req -in "$DOMAIN".csr -CA rootCA.pem -CAkey rootCA.key -CAcreateserial -out "$DOMAIN".crt -days "$DAYS" -sha256 -extfile "$DOMAIN".ext\n"
+
+openssl x509 -req -in $DOMAIN.csr -CA rootCA.pem -CAkey rootCA.key -CAcreateserial -out $DOMAIN.crt -days $DAYS -sha256 -extfile $DOMAIN.ext
+
+while [ -e rootCA.key ];
+        do
+                read -r -p "rootCA.key file is present! Delete? (Y/N) " response
+			case $response in
+				[Yy]* ) rm ./rootCA.key; exit;;
+				[Nn]* ) exit;;
+				* ) echo "Please answer yes or no.";;
+			esac
+	done
