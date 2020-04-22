@@ -90,7 +90,7 @@ read -p "Enter number of years before expiration: " YEARS
 
 DAYS=$[YEARS*365]
 
-#creat certificate
+#create certificate
 
 echo -e "Creating certficate file "$DOMAIN".crt\n"
 
